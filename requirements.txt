@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+requests
+openai
+pydantic
+pydantic-settings
+python-multipart
+msgpack
