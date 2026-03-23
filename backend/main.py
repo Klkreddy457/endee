@@ -100,7 +100,7 @@ def _run_ingestion(job_id: str, text: str, filename: str):
 
 
 @app.post("/upload")
-async def upload_document(file: UploadFile = File(...), background_tasks: BackgroundTasks = None):
+async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     """Upload a document for ingestion. Supported: .txt, .pdf, .docx, .md, .csv, .json"""
     ext = os.path.splitext(file.filename.lower())[1]
     if ext not in SUPPORTED_EXTENSIONS:

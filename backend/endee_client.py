@@ -40,7 +40,7 @@ class EndeeClient:
             res = requests.get(f"{self.base_url}/api/v1/health", headers=self.headers, timeout=5)
             # Response in open-source server for health check doesn't require auth but let's pass it anyway
             res.raise_for_status()
-            return res.json().get("status") == "ok"
+            return res.status_code == 200
         except Exception as e:
             logger.error(f"Endee health check failed: {e}")
             return False

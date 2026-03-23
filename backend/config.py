@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     top_k: int = 3
     
     # Endee Vector Settings
-    vector_dimension: int = 1536 # Default for text-embedding-3-small
-    index_name: str = "rag_docs"
+    vector_dimension: int = 384  # all-MiniLM-L6-v2 local embedding model
+    index_name: str = "rag_docs_384"
 
     class Config:
         env_file = ".env"
