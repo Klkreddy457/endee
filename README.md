@@ -1,38 +1,137 @@
-# RAG-Based AI Knowledge Assistant using Endee
+# 🧠 Endee RAG — AI Knowledge Assistant
 
-A complete, production-ready Retrieval-Augmented Generation (RAG) pipeline built with FastAPI and the high-performance [Endee](https://github.com/endee-io/endee) vector database.
+<div align="center">
 
-## Project Overview
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-required-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![License](https://img.shields.io/badge/License-Apache%202.0-green?style=for-the-badge)
 
-This project implements an AI knowledge assistant that allows users to seamlessly upload text documents, semantically search through them, and ask complex questions based on the ingested knowledge base. The assistant leverages Endee for insanely fast vector search and OpenAI/Ollama for generating embeddings and LLM responses.
+**A production-ready Retrieval-Augmented Generation (RAG) pipeline** built on top of the [Endee](https://github.com/EndeeLabs/endee) open-source vector database.
 
-## Architecture
+Upload documents → Ask questions → Get AI-powered answers grounded in your knowledge base.
 
-1. **Document Ingestion (`/upload`)**:
-   - The user uploads a `.txt` document.
-   - The document is parsed and split into overlapping chunks to preserve contextual meaning.
-   - Dense vector embeddings are generated for each chunk using an embedding model (e.g., `text-embedding-3-small` or Ollama).
-   - Vectors and metadata are stored in the **Endee** vector database.
+[Demo](#web-ui) · [Quick Start](#quick-start) · [API Docs](#api-reference)
 
-2. **Semantic Querying & RAG (`/query`)**:
-   - The user asks a question via the API.
-   - The query is converted into a dense vector embedding.
-   - The system queries the Endee vector database for the top-k most semantically similar document chunks.
-   - The retrieved context + the user's question are packaged into a prompt and sent to an LLM (e.g., `gpt-4o-mini`).
-   - The LLM streams back an accurate answer grounded strictly in the retrieved context.
+</div>
 
-## How Endee is Used
+---
 
-**Endee** is the core retrieval engine powering this RAG pipeline:
-- **Fast Similarity Search**: Endee holds the document chunk embeddings and executes sub-millisecond similarity searches (Cosine distance) to fetch relevant context.
-- **REST API Integration**: The backend communicates directly with Endee's HTTP API (`/api/v1/index/create`, `/api/v1/index/{name}/vector/insert`, and `/api/v1/index/{name}/search`).
-- **Metadata Filtering**: We serialize the original text chunk and chunk metadata as JSON strings into Endee's `meta` field so documents can be instantaneously retrieved.
+## ✨ Features
 
-## Setup Instructions
+- 📄 **Multi-format ingestion** — `.txt`, `.pdf`, `.docx`, `.md`, `.csv`, `.json`
+- ⚡ **High-speed vector search** — powered by Endee's cosine similarity engine
+- 🧩 **Local embeddings** — `sentence-transformers/all-MiniLM-L6-v2` (no API key, no cost)
+- 🤖 **LLM answers** — via [OpenRouter](https://openrouter.ai) free tier (`gpt-4o-mini`)
+- 💬 **Conversation memory** — session-based multi-turn chat
+- 🔄 **Async ingestion** — background job processing with real-time status polling
+- 🖥️ **Built-in Web UI** — clean chat interface served at `/`
 
-### 1. Start the Endee Vector Database
-You need an instance of Endee running. The easiest way is via Docker.
-Run this from the root of the repository:
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────┐     Upload      ┌──────────────────────┐     Vectors     ┌─────────────┐
+│    User     │ ─────────────► │  FastAPI  (port 8000) │ ──────────────► │  Endee DB   │
+│  (Browser)  │                 │                       │                 │ (port 8080) │
+│             │ ◄───────────── │  /query               │ ◄────────────── │             │
+└─────────────┘    AI Answer    └──────────┬────────────┘  Top-K chunks  └─────────────┘
+                                           │
+                               ┌───────────▼────────────┐
+                               │   OpenRouter (LLM)     │
+                               │   gpt-4o-mini          │
+                               └────────────────────────┘
+```
+
+**Ingestion flow:** File → Parse → Chunk → Embed (local) → Store in Endee
+
+**Query flow:** Question → Embed (local) → Search Endee → LLM → Answer
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Python 3.10+
+- Docker Desktop (for Endee vector DB)
+- Free [OpenRouter](https://openrouter.ai) API key (for LLM)
+
+---
+
+### Step 1 — Clone & build the Endee DB image
+
+```bash
+git clone https://github.com/YOUR_USERNAME/endee.git
+cd endee
+
+# Build the Endee vector DB image from source (~5-10 min, first time only)
+docker build -f infra/Dockerfile -t endee-oss:latest .
+
+# Start Endee DB in the background
+docker-compose up -d
+```
+
+> ✅ Endee DB is now running at `http://localhost:8080`
+
+---
+
+### Step 2 — Configure environment
+
+Create a `.env` file in the project root:
+
+```env
+ENDEE_URL=http://localhost:8080
+ENDEE_AUTH_TOKEN=
+
+# Get a free key at https://openrouter.ai
+OPENAI_API_KEY=sk-or-v1-your-key-here
+OPENAI_API_BASE=https://openrouter.ai/api/v1
+LLM_MODEL=openai/gpt-4o-mini
+
+# Embeddings are generated locally — no key needed
+EMBEDDING_MODEL=openai/text-embedding-3-small
+```
+
+---
+
+### Step 3 — Install Python dependencies
+
+```bash
+python -m venv venv
+
+# Windows
+.\venv\Scripts\activate
+
+# Linux / macOS
+source venv/bin/activate
+
+pip install -r requirements.txt
+pip install sentence-transformers
+```
+
+---
+
+### Step 4 — Run the FastAPI server
+
+```bash
+uvicorn backend.main:app --port 8000 --reload
+```
+
+Open **http://localhost:8000** 🎉
+
+---
+
+## 🐳 Running with Docker
+
+This project uses Docker to run the **Endee vector database**. The FastAPI backend runs locally alongside it. Choose one of the two options below.
+
+---
+
+### Option A — Use the pre-built Docker Hub image *(recommended, fastest)*
+
+No compilation needed — pulls the official image directly:
+
 ```bash
 docker run \
   --ulimit nofile=100000:100000 \
@@ -40,74 +139,181 @@ docker run \
   -v ./endee-data:/data \
   --name endee-server \
   --restart unless-stopped \
+  -d \
   endeeio/endee-server:latest
 ```
-*(The server will be reachable at `http://localhost:8080`)*
 
-### 2. Configure the Backend
+> ✅ Endee DB will be live at `http://localhost:8080` within seconds.
 
-Create a `.env` file in the root `endee` directory (there is a template provided):
+---
 
-```env
-ENDEE_URL=http://localhost:8080
-ENDEE_AUTH_TOKEN=
-OPENAI_API_KEY=your-openai-api-key-here
-EMBEDDING_MODEL=text-embedding-3-small
-LLM_MODEL=gpt-4o-mini
+### Option B — Build from source *(for development / custom builds)*
+
+Compiles the Endee C++ server inside Docker (~5–10 min, first time only):
+
+```bash
+# From the project root — build the image
+docker build -f infra/Dockerfile -t endee-oss:latest .
+
+# Start using docker-compose
+docker-compose up -d
 ```
 
-*(If you wish to use a local LLM like Ollama, point `OPENAI_API_BASE` in the code to `http://localhost:11434/v1` and use your local model names).*
+`docker-compose.yml` starts a container named `endee-oss` that:
+- Exposes the vector DB at **http://localhost:8080**
+- Persists data in the named Docker volume `endee-data`
+- Restarts automatically unless manually stopped
 
-### 3. Install Dependencies
+---
+
+### Verify Endee is healthy
+
 ```bash
-pip install -r requirements.txt
+docker ps                                        # confirm container is running
+curl http://localhost:8080/api/v1/health         # should return {"status":"ok"}
 ```
 
-### 4. Run the API Server
-Start the FastAPI server (from the root directory):
+### Start the FastAPI backend (separate terminal)
+
 ```bash
-uvicorn backend.main:app --reload --port 8000
+# Activate your virtual environment first
+# Windows:
+.\venv\Scripts\activate
+# Linux / macOS:
+source venv/bin/activate
+
+uvicorn backend.main:app --port 8000 --reload
 ```
 
-## Example API Usage
+Open **http://localhost:8000** 🎉
 
-The backend API is accessible at `http://localhost:8000`. It provides Swagger documentation at `http://localhost:8000/docs`.
+### Stop the Endee container
 
-### 1. Health Check
-Check if the API and Endee are online.
 ```bash
-curl -X GET http://localhost:8000/
+# Option A (docker run):
+docker stop endee-server && docker rm endee-server
+
+# Option B (docker-compose):
+docker-compose down        # data is preserved in the Docker volume
+docker-compose down -v     # ⚠️ WARNING: also deletes all indexed vector data
+```
+
+---
+
+## 🖥️ Web UI
+
+The app ships with a built-in chat interface:
+
+- **Upload panel** — drag & drop documents to index
+- **Chat panel** — ask questions and get cited answers
+- **Documents tab** — manage your knowledge base
+- **Engine tab** — view system info
+
+---
+
+## 📡 API Reference
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/` | Web UI |
+| `GET` | `/health` | Health check |
+| `POST` | `/upload` | Upload & index a document |
+| `GET` | `/jobs/{job_id}` | Poll ingestion job status |
+| `GET` | `/documents` | List indexed documents |
+| `DELETE` | `/documents/{filename}` | Remove document from registry |
+| `POST` | `/query` | Ask a question (JSON body) |
+| `GET` | `/query?q=...` | Ask a question (URL param) |
+| `DELETE` | `/session/{id}` | Clear conversation history |
+
+> 📖 Interactive Swagger docs: **http://localhost:8000/docs**
+
+---
+
+### Example — Upload a document
+
+```bash
+curl -X POST -F "file=@my-document.pdf" http://localhost:8000/upload
 ```
 ```json
 {
-  "status": "healthy",
-  "endee_connected": true
+  "message": "'my-document.pdf' accepted. Ingestion running in background.",
+  "job_id": "3f9c1a2b-...",
+  "status": "queued"
 }
 ```
 
-### 2. Upload Document (Ingestion)
-Upload any `.txt` file to be chunked and indexed.
+### Example — Ask a question
+
 ```bash
-curl -X POST -F "file=@sample.txt" http://localhost:8000/upload
+curl "http://localhost:8000/query?q=What+is+this+document+about?"
 ```
 ```json
 {
-  "message": "Successfully ingested 14 chunks.",
-  "processing_time_ms": 1250.33
+  "answer": "The document discusses...",
+  "sources": ["my-document.pdf"],
+  "processing_time_ms": 412.3,
+  "session_id": "abc-123"
 }
 ```
 
-### 3. Ask a Question (RAG)
-Query the knowledge base using the `GET` or `POST` endpoints.
+---
+
+## 📁 Project Structure
+
+```
+endee/
+├── backend/
+│   ├── main.py            # FastAPI app & all routes
+│   ├── rag_pipeline.py    # Ingestion + query orchestration
+│   ├── embedding.py       # Local embeddings + OpenRouter LLM
+│   ├── endee_client.py    # HTTP client for Endee vector DB
+│   ├── document_loader.py # File parsers & recursive text chunker
+│   ├── reranker.py        # Cross-encoder reranker (sentence-transformers)
+│   ├── config.py          # Settings loaded from .env
+│   ├── utils.py           # Shared logger
+│   └── static/            # Web UI (index.html)
+├── infra/
+│   └── Dockerfile         # Multi-stage build: compiles Endee from C++ source
+├── src/                   # Endee C++ source code
+├── docker-compose.yml     # Runs Endee DB on port 8080
+├── requirements.txt       # Python dependencies
+└── .env                   # Your secrets (not committed)
+```
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| API Server | FastAPI + Uvicorn |
+| Vector Database | [Endee](https://github.com/EndeeLabs/endee) (self-hosted, open-source) |
+| Embeddings | `sentence-transformers` — `all-MiniLM-L6-v2` (local, free) |
+| LLM | OpenRouter → `gpt-4o-mini` |
+| Document Parsing | PyMuPDF · python-docx · built-in CSV/JSON |
+| Containerization | Docker + docker-compose |
+
+---
+
+## 🔁 Restarting After a Reboot
+
 ```bash
-curl -X GET "http://localhost:8000/query?q=What+is+Endee?"
+# Start Endee DB
+docker-compose up -d
+
+# Start FastAPI (in a new terminal)
+.\venv\Scripts\activate
+uvicorn backend.main:app --port 8000 --reload
 ```
-```json
-{
-  "answer": "Endee is a high-performance open-source vector database built for AI search and retrieval workloads. It is designed for teams building RAG pipelines...",
-  "sources": [
-    "sample.txt"
-  ],
-  "processing_time_ms": 845.12
-}
-```
+
+---
+
+## 🤝 Contributing
+
+Pull requests are welcome! For major changes, please open an issue first.
+
+---
+
+## 📄 License
+
+[Apache 2.0](LICENSE) — built on the [Endee](https://github.com/EndeeLabs/endee) open-source vector database.
